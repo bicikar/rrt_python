@@ -12,6 +12,7 @@ class Field:
         self._obstacles = []
         self._path_vector = []
         self._result_node = None
+        file_name = 'maps/' + file_name
         file = open(file_name, 'r')
         lines = file.readlines()
         self._cols = int(lines[0])
@@ -20,6 +21,10 @@ class Field:
         self._start = Node(start[0], start[1])
         end = list(map(float, lines[3].split()))
         self._end = Node(end[0], end[1])
+        self.image = None
+        self.image_list = []
+        self.image_max_iter = 1
+        self.image_iter = 0
 
         self._tree = Tree(self._start)
         if self._step <= 0:
@@ -66,7 +71,8 @@ class Field:
                 nearest_node._y + vec_y < 0 or \
                 nearest_node._y + vec_y > self._rows:
             return
-        if (distance(rand_point._x, rand_point._y, nearest_node._x, nearest_node._y) ** 0.5 < self._step):
+        if (distance(rand_point._x, rand_point._y, nearest_node._x,
+                     nearest_node._y) ** 0.5 < self._step):
             steer_point = rand_point
         else:
             steer_point = Node(nearest_node._x + vec_x, nearest_node._y + vec_y)
@@ -95,16 +101,16 @@ class Field:
                 break
 
     def draw_tree(self, node, draw):
-        if len(node._child) == 0:
-            return
-        for child in node._child:
-            draw.line([(node._x, node._y), (child._x, child._y)], fill='black',
-                      width=4)
-            self.draw_tree(child, draw)
+        if len(node._child) > 0:
+            for child in node._child:
+                draw.line([(node._x, node._y), (child._x, child._y)], fill='black',
+                          width=4)
+                self.image_iter += 1
+                self.draw_tree(child, draw)
 
     def draw(self):
-        image = Image.new("RGB", (self._cols, self._rows), (255, 255, 255))
-        draw = ImageDraw.Draw(image)
+        self.image = Image.new("RGB", (self._cols, self._rows), (255, 255, 255))
+        draw = ImageDraw.Draw(self.image)
         for obstacle in self._obstacles:
             obs_points = [(point._x, point._y) for point in obstacle.points]
             draw.polygon(obs_points, fill='gray')
@@ -120,7 +126,7 @@ class Field:
                       self._end._x + big_r,
                       self._end._y + big_r),
                      fill='blue')
-        image.save('res.png')
+        self.image.save('res.png')
 
     def read_parent(self, node, draw):
         rad = min(self._rows, self._cols) / 125
@@ -129,6 +135,8 @@ class Field:
         if node.parent is not None:
             draw.line([(node._x, node._y), (parent._x, parent._y)], fill='red',
                       width=5)
-            draw.ellipse((node._x - rad, node._y - rad, node._x + rad, node._y + rad),
-                         fill=(30, 170, 10))
+            draw.ellipse(
+                (node._x - rad, node._y - rad, node._x + rad, node._y + rad),
+                fill=(30, 170, 10))
+            self.image_iter += 1
             self.read_parent(parent, draw)

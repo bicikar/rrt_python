@@ -19,6 +19,7 @@ class Node(object):
         self.left = None
         self.right = None
         self._same = []
+        self.cost = 0
 
     def setx(self, x):
         self._x = x
@@ -48,6 +49,7 @@ class KDTree:
         self._best = None
         self._best_dist = 0
         self._dim = 2
+        self._nodes_in_radius = []
 
     def insert_rec(self, point, node, s_dim):
         if node is None:
@@ -92,9 +94,27 @@ class KDTree:
             return
         self._best = None
         self._best_dist = 0
-        # print(self.parent, point)
         self.nearest_rec(self.parent, point, 0)
         return self._best
+
+    def radius_rec(self, root, point, index, radius):
+        if root is None:
+            return
+        dx = root.get(index) - point.get(index)
+        index = (index + 1) % self._dim
+        self.nearest_rec(root.left if dx > 0 else root.right, point, index)
+        dis = distance(root._x, root._y, point._x, point._y)
+        if dis < radius:
+            self._nodes_in_radius.append(root)
+        if abs(dx) < radius:
+            self.nearest_rec(root.right if dx > 0 else root.left, point, index)
+
+    def radius_search(self, point, radius):
+        if self.parent is None:
+            return
+        self._nodes_in_radius = []
+        self.nearest_rec(self.parent, point, 0, radius)
+        return self._nodes_in_radius
 
 
 class Tree(object):

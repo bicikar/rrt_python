@@ -3,6 +3,7 @@ import sys
 from field import *
 
 if __name__ == '__main__':
+    random.seed(12114)
     n = len(sys.argv)
     if n < 3:
         raise ValueError('You should input at least map name and iterations')
