@@ -20,6 +20,7 @@ class Node(object):
         self.right = None
         self._same = []
         self.cost = 0
+        self.depth = 0
 
     def setx(self, x):
         self._x = x
@@ -33,11 +34,25 @@ class Node(object):
     def add_same(self, node):
         self._same.append(node)
 
+    def define_parent(self, parent):
+        self.parent = parent
+        self.depth = parent.depth + 1
+        dis = distance(self._x, self._y, parent._x, parent._y)
+        self.cost = parent.cost + dis
+
     def get(self, index):
         if index == 0:
             return self._x
         else:
             return self._y
+
+    def delete_child(self, node):
+        # new_child = [e for e in self._child if e._x != node._x or e._y != node._y]
+        # self._child = new_child
+        for i, child in enumerate(self._child):
+            if abs(child._x - node._x) < 0.0001 and abs(child._y - node._y) < 0.0001:
+                self._child[i].parent = None
+                del self._child[i]
 
     def __str__(self):
         return "({0} {1})".format(self._x, self._y)
@@ -100,31 +115,38 @@ class KDTree:
     def radius_rec(self, root, point, index, radius):
         if root is None:
             return
+        print("E")
         dx = root.get(index) - point.get(index)
         index = (index + 1) % self._dim
-        self.nearest_rec(root.left if dx > 0 else root.right, point, index)
-        dis = distance(root._x, root._y, point._x, point._y)
+        dis = distance(root._x, root._y, point._x, point._y) ** 0.5
         if dis < radius:
+            print('A')
             self._nodes_in_radius.append(root)
-        if abs(dx) < radius:
-            self.nearest_rec(root.right if dx > 0 else root.left, point, index)
+        self.nearest_rec(root.left if dx > 0 else root.right, point, index)
+        # if abs(dx) < radius:
+        self.nearest_rec(root.right if dx > 0 else root.left, point, index)
 
     def radius_search(self, point, radius):
         if self.parent is None:
             return
         self._nodes_in_radius = []
-        self.nearest_rec(self.parent, point, 0, radius)
+        self.radius_rec(self.parent, point, 0, radius)
+        if len(self._nodes_in_radius) > 0:
+            print(point)
+            print(len(self._nodes_in_radius), *self._nodes_in_radius)
+
+
         return self._nodes_in_radius
 
 
 class Tree(object):
     def __init__(self, root):
         self.root = root
-        self._nodes = []
+        self._nodes = [root]
 
     def add_node(self, node):
         self._nodes.append(node)
 
 
 def distance(x1, y1, x2, y2):
-    return (x2 - x1) ** 2 + (y2 - y1) ** 2
+    return ((x2 - x1) ** 2 + (y2 - y1) ** 2)

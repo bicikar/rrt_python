@@ -7,7 +7,7 @@ from obstacles import *
 
 
 class Field:
-    def __init__(self, file_name, step=0):
+    def __init__(self, file_name, step=0, star=0):
         self._step = step
         self._obstacles = []
         self._path_vector = []
@@ -25,6 +25,8 @@ class Field:
         self.image_list = []
         self.image_max_iter = 1
         self.image_iter = 0
+        self.max_depth = 0
+        self.star = star
 
         self._tree = Tree(self._start)
         if self._step <= 0:
@@ -42,23 +44,38 @@ class Field:
         file.close()
 
     def point_obstacles(self, node):
-        result = True
         for obstacle in self._obstacles:
-            if not obstacle.check_inside(node):
-                result = False
-        return result
+            if obstacle.check_inside(node):
+                return True
+        return False
+
+    def segment_obstacles(self, start, end):
+        for obstacle in self._obstacles:
+            if obstacle.segment_obstacle(start, end):
+                return True
+        return False
 
     def take_random_point(self):
         x = random.uniform(0, self._cols)
         y = random.uniform(0, self._rows)
         random_node = Node(x, y)
-        if self.point_obstacles(random_node):
+        if not self.point_obstacles(random_node):
             return random_node
         return None
 
     def find_nearest(self, node):
         min_node = self._kdtree.nearest(node)
         return min_node
+
+    def find_nearest_in_radius(self, node):
+        # nodes = self._kdtree.radius_search(node, 4 * self._step)
+        # return nodes
+        res = []
+        for p in self._tree._nodes:
+            if distance(node._x, node._y, p._x,
+                        p._y) ** 0.5 < self.star * 3 * self._step:
+                res.append(p)
+        return res
 
     def steer(self, rand_point, nearest_node):
         dx = rand_point._x - nearest_node._x
@@ -71,22 +88,52 @@ class Field:
                 nearest_node._y + vec_y < 0 or \
                 nearest_node._y + vec_y > self._rows:
             return
-        if (distance(rand_point._x, rand_point._y, nearest_node._x,
-                     nearest_node._y) ** 0.5 < self._step):
+        dis = distance(rand_point._x, rand_point._y, nearest_node._x,
+                       nearest_node._y) ** 0.5
+        dis_squared = distance(rand_point._x, rand_point._y, nearest_node._x,
+                               nearest_node._y)
+        if dis < self._step:
             steer_point = rand_point
         else:
             steer_point = Node(nearest_node._x + vec_x, nearest_node._y + vec_y)
-        for obstacle in self._obstacles:
-            if not obstacle.segment_obstacle(nearest_node, steer_point):
-                return
-        nearest_node.add_child(steer_point)
-        steer_point.parent = nearest_node
-        self._tree.add_node(steer_point)
-        self._kdtree.insert(self._kdtree.parent, steer_point)
+        if self.segment_obstacles(nearest_node, steer_point):
+            return None
+
+        steer_point.cost = nearest_node.cost + dis_squared
         if (distance(self._end._x, self._end._y, steer_point._x,
                      steer_point._y) ** 0.5 < self._step):
+            if self.segment_obstacles(steer_point, self._end):
+                return steer_point
             self._result_node = steer_point
-            print(steer_point._x, steer_point._y)
+            print(steer_point)
+        return steer_point
+
+    def choose_parent(self, node, near_nodes, nearest_node):
+        min_node = nearest_node
+        min_cost = nearest_node.cost + distance(node._x, node._y,
+                                                nearest_node._x,
+                                                nearest_node._y)
+        for par in near_nodes:
+            if not self.segment_obstacles(node, par):
+                dis = distance(node._x, node._y, par._x, par._y)
+                cur_cost = par.cost + dis
+                if cur_cost < min_cost:
+                    min_cost = cur_cost
+                    min_node = par
+        return min_node
+
+    def rewire(self, node, near_nodes):
+        for p in near_nodes:
+            if not self.segment_obstacles(node, p):
+                dis = distance(node._x, node._y, p._x, p._y)
+                if node.cost + dis < p.cost:
+                    # print(len(p._child), end=' ')
+                    p.parent.delete_child(p)
+                    p.delete_child(node)
+                    p.define_parent(node)
+                    node.add_child(p)
+                    p.cost = node.cost + dis
+                    # print(len(p._child))
 
     def rrt_algo(self, iterations):
         for i in range(iterations):
@@ -95,26 +142,75 @@ class Field:
                 random_point = self.take_random_point()
 
             nearest_node = self.find_nearest(random_point)
-            self.steer(random_point, nearest_node)
+            steer_point = self.steer(random_point, nearest_node)
+            if steer_point is not None:
+                near_nodes = self.find_nearest_in_radius(steer_point)
+
+                parent = self.choose_parent(steer_point, near_nodes,
+                                            nearest_node)
+                # steer_point.cost = parent.cost + distance(steer_point._x,
+                #                                           steer_point._y,
+                #                                           parent._x, parent._y)
+                parent.add_child(steer_point)
+                steer_point.define_parent(parent)
+                self.max_depth = max(self.max_depth, steer_point.depth)
+                self._tree.add_node(steer_point)
+                self._kdtree.insert(self._kdtree.parent, steer_point)
+                self.rewire(steer_point, near_nodes)
+
+                # self.draw_all()
+
             if self._result_node is not None:
                 self._end.parent = self._result_node
                 break
 
-    def draw_tree(self, node, draw):
-        if len(node._child) > 0:
+    # def draw_tree(self, node, draw, it):
+    #     if it >= 0:
+    #         if len(node._child) > 0:
+    #             for child in node._child:
+    #                 draw.line([(node._x, node._y), (child._x, child._y)],
+    #                           fill='black',
+    #                           width=4)
+    #                 self.image_iter += 1
+    #                 self.draw_tree(child, draw, it - 1)
+
+    def draw_tree(self, node, draw, i):
+        if i >= 0:
+            if len(node._child) == 0:
+                return
             for child in node._child:
                 draw.line([(node._x, node._y), (child._x, child._y)], fill='black',
                           width=4)
-                self.image_iter += 1
-                self.draw_tree(child, draw)
+                self.draw_tree(child, draw, i - 1)
 
-    def draw(self):
-        self.image = Image.new("RGB", (self._cols, self._rows), (255, 255, 255))
-        draw = ImageDraw.Draw(self.image)
+    # def draw_iter(self, i, draw):
+    #     # image = Image.new("RGB", (self._cols, self._rows), (255, 255, 255))
+    #     # draw = ImageDraw.Draw(image)
+    #     for obstacle in self._obstacles:
+    #         obs_points = [(point._x, point._y) for point in obstacle.points]
+    #         draw.polygon(obs_points, fill='gray')
+    #     self.draw_tree(self._tree.root, draw, i)
+    #     rad = min(self._rows, self._cols) / 125
+    #     big_r = rad * 1.25
+    #     draw.ellipse((self._start._x - big_r, self._start._y - big_r,
+    #                   self._start._x + big_r,
+    #                   self._start._y + big_r),
+    #                  fill='red')
+    #     draw.ellipse((self._end._x - big_r, self._end._y - big_r,
+    #                   self._end._x + big_r,
+    #                   self._end._y + big_r),
+    #                  fill='blue')
+    #     # self.image_list.append(image)
+
+    def draw_all(self):
+        # for i in range(self.max_depth + 1):
+        #     self.draw_iter(i)
+        image = Image.new("RGB", (self._cols, self._rows), (255, 255, 255))
+        draw = ImageDraw.Draw(image)
         for obstacle in self._obstacles:
             obs_points = [(point._x, point._y) for point in obstacle.points]
             draw.polygon(obs_points, fill='gray')
-        self.draw_tree(self._tree.root, draw)
+        self.draw_tree(self._tree.root, draw, self.max_depth + 1)
         self.read_parent(self._end, draw)
         rad = min(self._rows, self._cols) / 125
         big_r = rad * 1.25
@@ -126,7 +222,29 @@ class Field:
                       self._end._x + big_r,
                       self._end._y + big_r),
                      fill='blue')
-        self.image.save('res.png')
+        self.image_list.append(image)
+        image.save('res.png')
+
+    def draw(self):
+        image = Image.new("RGB", (self._cols, self._rows), (255, 255, 255))
+        draw = ImageDraw.Draw(image)
+        for obstacle in self._obstacles:
+            obs_points = [(point._x, point._y) for point in obstacle.points]
+            draw.polygon(obs_points, fill='gray')
+        self.draw_tree(self._tree.root, draw, self.max_depth)
+        print("AAAa")
+        self.read_parent(self._end, draw)
+        rad = min(self._rows, self._cols) / 125
+        big_r = rad * 1.25
+        draw.ellipse((self._start._x - big_r, self._start._y - big_r,
+                      self._start._x + big_r,
+                      self._start._y + big_r),
+                     fill='red')
+        draw.ellipse((self._end._x - big_r, self._end._y - big_r,
+                      self._end._x + big_r,
+                      self._end._y + big_r),
+                     fill='blue')
+        image.save('res.png')
 
     def read_parent(self, node, draw):
         rad = min(self._rows, self._cols) / 125

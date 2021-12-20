@@ -21,20 +21,21 @@ class Polygon(object):
                                 counter += 1
             p1 = p2
         if counter % 2 == 0:
-            return True
-        else:
             return False
+        else:
+            return True
 
     def segment_obstacle(self, start, end):
-        if not self.check_inside(start) or not self.check_inside(end):
-            return False
+        if self.check_inside(start) or self.check_inside(end):
+            return True
         p1 = self.points[0]
         size = len(self.points)
         for i in range(1, size + 1):
             p2 = self.points[i % size]
             if segment_intersection(start, end, p1, p2):
-                return False
-        return True
+                return True
+            p1 = p2
+        return False
 
 
 def ccw(p1, p2, p3):
