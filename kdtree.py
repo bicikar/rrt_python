@@ -100,7 +100,7 @@ class KDTree:
         dx = root.get(index) - point.get(index)
         index = (index + 1) % self._dim
         self.nearest_rec(root.left if dx > 0 else root.right, point, index)
-        if dx ** 2 >= self._best_dist:
+        if dx ** 2 >= self._best_dist ** 2:
             return
         self.nearest_rec(root.right if dx > 0 else root.left, point, index)
 
@@ -115,27 +115,24 @@ class KDTree:
     def radius_rec(self, root, point, index, radius):
         if root is None:
             return
-        print("E")
         dx = root.get(index) - point.get(index)
-        index = (index + 1) % self._dim
-        dis = distance(root._x, root._y, point._x, point._y) ** 0.5
+        dis = distance(root._x, root._y, point._x, point._y)
         if dis < radius:
-            print('A')
             self._nodes_in_radius.append(root)
-        self.nearest_rec(root.left if dx > 0 else root.right, point, index)
-        # if abs(dx) < radius:
-        self.nearest_rec(root.right if dx > 0 else root.left, point, index)
+        index = (index + 1) % self._dim
+        self.radius_rec(root.left if dx > 0 else root.right, point, index, radius)
+        if abs(dx) >= radius:
+            return
+        self.radius_rec(root.right if dx > 0 else root.left, point, index, radius)
 
     def radius_search(self, point, radius):
         if self.parent is None:
             return
         self._nodes_in_radius = []
         self.radius_rec(self.parent, point, 0, radius)
-        if len(self._nodes_in_radius) > 0:
-            print(point)
-            print(len(self._nodes_in_radius), *self._nodes_in_radius)
-
-
+        # if len(self._nodes_in_radius) > 0:
+        #     print(point)
+        #     print(len(self._nodes_in_radius), *self._nodes_in_radius)
         return self._nodes_in_radius
 
 
@@ -149,4 +146,4 @@ class Tree(object):
 
 
 def distance(x1, y1, x2, y2):
-    return ((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
