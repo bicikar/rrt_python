@@ -170,10 +170,6 @@ class Field:
                                     self._result_node = steer_point
                                     self._end.parent = self._result_node
 
-                            # if self._result_node is not None:
-            #     self._end.parent = self._result_node
-            #     break
-
     def draw_tree(self, node, draw, i):
         if i >= 0:
             if len(node._child) == 0:

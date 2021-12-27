@@ -4,7 +4,7 @@ from statistics import mean
 from field import *
 
 if __name__ == '__main__':
-    random.seed(123)
+    random.seed(1234)
     n = len(sys.argv)
     if n < 3:
         raise ValueError('You should input at least map name and iterations')
