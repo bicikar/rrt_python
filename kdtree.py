@@ -64,6 +64,7 @@ class KDTree:
         self._best = None
         self._best_dist = 0
         self._dim = 2
+        self.visited = 0
         self._nodes_in_radius = []
 
     def insert_rec(self, point, node, s_dim):
@@ -115,6 +116,7 @@ class KDTree:
     def radius_rec(self, root, point, index, radius):
         if root is None:
             return
+        self.visited += 1
         dx = root.get(index) - point.get(index)
         dis = distance(root._x, root._y, point._x, point._y)
         if dis < radius:
@@ -128,6 +130,7 @@ class KDTree:
     def radius_search(self, point, radius):
         if self.parent is None:
             return
+        self.visited = 0
         self._nodes_in_radius = []
         self.radius_rec(self.parent, point, 0, radius)
         # if len(self._nodes_in_radius) > 0:

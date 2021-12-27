@@ -71,14 +71,8 @@ class Field:
         nodes = []
         if self.star:
             nodes = self._kdtree.radius_search(node, 1.5 * self._step)
+
         return nodes
-        # res = []
-        # if self.star:
-        #     for p in self._tree._nodes:
-        #         if distance(node._x, node._y, p._x,
-        #                     p._y) < 1.5 * self._step:
-        #             res.append(p)
-        # return res
 
     def steer(self, rand_point, nearest_node):
         dx = rand_point._x - nearest_node._x
@@ -139,7 +133,7 @@ class Field:
             nearest_node = self.find_nearest(random_point)
             steer_point = self.steer(random_point, nearest_node)
             if steer_point is not None:
-                # self.draw_iter(steer_point)
+                self.draw_iter(steer_point)
                 near_nodes = self.find_nearest_in_radius(steer_point)
 
                 parent = self.choose_parent(steer_point, near_nodes,
@@ -151,7 +145,7 @@ class Field:
                 self._kdtree.insert(self._kdtree.parent, steer_point)
                 self.rewire(steer_point, near_nodes)
 
-                # self.draw_iter()
+                self.draw_iter()
                 if (distance(self._end._x, self._end._y, steer_point._x,
                              steer_point._y) < self._step):
                     if not self.segment_obstacles(steer_point, self._end):
